@@ -1,0 +1,30 @@
+[project]
+name = "st-user-app"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Michael Booth", email = "michael@databooth.com.au" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "duckdb>=1.2.1",
+    "libsql-experimental>=0.0.44",
+    "loguru>=0.7.3",
+    "propelauth-py>=4.2.3",
+    "python-dotenv>=1.1.0",
+    "streamlit>=1.44.0",
+    "watchdog>=6.0.0",
+]
+
+[project.scripts]
+st-user-app = "st_user_app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+]
