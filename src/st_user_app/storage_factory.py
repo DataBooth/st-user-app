@@ -1,6 +1,7 @@
-from storage.duckdb_storage import DuckDBStorage
-from storage.sqlite_storage import SQLiteStorage
-from storage.supabase_storage import SupabaseStorage
+from st_user_app.storage.duckdb_storage import DuckDBStorage
+from st_user_app.storage.sqlite_storage import SQLiteStorage
+
+# from st_user_app.storage.supabase_storage import SupabaseStorage
 
 
 class StorageFactory:
@@ -11,7 +12,7 @@ class StorageFactory:
                 return DuckDBStorage(location)
             case "sqlite":
                 return SQLiteStorage(location)
-            case "supabase":
-                return SupabaseStorage()
+            # case "supabase":
+            #     return SupabaseStorage()
             case _:
                 raise ValueError(f"Unsupported storage type: {storage_type}")

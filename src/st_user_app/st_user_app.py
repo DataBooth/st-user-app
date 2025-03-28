@@ -1,19 +1,49 @@
-# st_user_app.py
-import streamlit as st
-from loguru import logger
-from .propelauth_app import auth
-from .storage_factory import StorageFactory
-from pathlib import Path
 import os
+from pathlib import Path
+
+import streamlit as st
+from dotenv import load_dotenv
+from loguru import logger
+
+from st_user_app.propelauth_app import Auth
+from st_user_app.storage_factory import StorageFactory
+
+load_dotenv()
+
+PROPELAUTH_URL = os.getenv("PROPELAUTH_URL")
+PROPELAUTH_API_KEY = os.getenv("PROPELAUTH_API_KEY")
 
 
 class StreamlitUserApp:
     def __init__(self, storage_type: str = "duckdb"):
-        self.user = None
-        self.storage = None
         self.storage_type = storage_type
+        self.auth = Auth(PROPELAUTH_URL, PROPELAUTH_API_KEY)
         self._configure_logging()
-        self._initialize_components()
+        self._initialize_storage()
+
+    def _initialize_storage(self):
+        try:
+            self.storage = StorageFactory.create(
+                self.storage_type, location=os.getenv("STORAGE_LOCATION", "local")
+            )
+            logger.info(f"Initialized {self.storage_type} storage")
+        except Exception as e:
+            logger.error(f"Storage initialization failed: {str(e)}")
+            st.error("Storage initialization failed. Please contact support.")
+            st.stop()
+
+    def run(self):
+        try:
+            user = self.auth.get_user(st.experimental_user.sub)
+            if user:
+                self._show_authenticated_ui(user)
+        except Exception as e:
+            self._show_login_ui()
+
+    def _show_login_ui(self):
+        st.write("You are not logged in.")
+        st.button("Login", on_click=st.login)
+        st.stop()
 
     def _configure_logging(self):
         # TODO: Fix log path use project root
@@ -30,26 +60,6 @@ class StreamlitUserApp:
             format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
         )
 
-    def _initialize_components(self):
-        """Initialize authentication and storage"""
-        try:
-            self.user = auth.get_user()
-            self.storage = StorageFactory.create(
-                self.storage_type, location=os.getenv("STORAGE_LOCATION", "local")
-            )
-            logger.info(f"Initialized {self.storage_type} storage")
-        except Exception as e:
-            logger.error(f"Initialization failed: {str(e)}")
-            st.error("Application initialization failed. Please contact support.")
-            st.stop()
-
-    def run(self):
-        """Main application entry point"""
-        if not self.user:
-            self._show_unauthorized()
-        else:
-            self._show_authenticated_ui()
-
     def _show_unauthorized(self):
         """Display unauthorized message"""
         st.error("🚫 Unauthorized - Please log in to access the application")
@@ -64,7 +74,9 @@ class StreamlitUserApp:
         """Configure the sidebar components"""
         with st.sidebar:
             st.link_button(
-                "🔑 Account Settings", auth.get_account_url(), use_container_width=True
+                "🔑 Account Settings",
+                self.auth.get_account_url(),
+                use_container_width=True,
             )
             st.write(f"👤 Logged in as: **{self.user.email}**")
 
@@ -74,15 +86,10 @@ class StreamlitUserApp:
     def _handle_logout(self):
         """Handle logout process"""
         try:
-            auth.logout()
-            self.storage.close()
-            logger.info(f"User {self.user.email} logged out")
-            st.markdown(
-                """
-                <meta http-equiv="refresh" content="0; URL='/api/auth/logout'" />
-                """,
-                unsafe_allow_html=True,
-            )
+            self.auth.logout(self.user.user_id)
+            st.success("Logged out successfully!")
+            st.session_state.clear()
+            st.rerun()
         except Exception as e:
             logger.error(f"Logout failed: {str(e)}")
             st.error("Logout failed. Please try again.")
@@ -166,3 +173,16 @@ class StreamlitUserApp:
                 logger.info("Storage connection closed")
             except Exception as e:
                 logger.error(f"Storage closure failed: {str(e)}")
+
+    def _show_login_form(self):
+        st.title("🔐 Login")
+        email_or_username = st.text_input("Email or Username")
+        password = st.text_input("Password", type="password")
+        if st.button("Log In"):
+            user = self.auth.login(email_or_username, password)
+            if user:
+                st.session_state["user"] = user
+                st.success("Login successful!")
+                st.rerun()
+            else:
+                st.error("Invalid credentials. Please try again.")

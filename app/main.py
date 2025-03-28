@@ -1,4 +1,4 @@
-from st_user_app import StreamlitUserApp
+from st_user_app.st_user_app import StreamlitUserApp
 import os
 
 if __name__ == "__main__":
