@@ -8,31 +8,40 @@ from typing import Optional, Union
 
 SECRETS_FILE = Path(".streamlit/secrets.toml")
 
-
 class DuckDBConnection(BaseConnection[duckdb.DuckDBPyConnection]):
-    """Custom DuckDB Streamlit connection supporting local/MotherDuck connections"""
-
+    """Custom DuckDB connection for Streamlit with table creation support for in-memory databases"""
+    
     def _connect(self, **kwargs) -> duckdb.DuckDBPyConnection:
-        db_path = self._secrets.get("database") or kwargs.get("database") or ":memory:"
-
-        # MotherDuck validation
+        db_path = self._secrets.get("database", kwargs.pop("database", ":memory:"))
+        
+        # MotherDuck support
         if db_path.startswith("md:"):
-            if "motherduck_token" not in self._secrets:
-                raise ValueError("MotherDuck token required in secrets.toml")
-            db_path = f"{db_path}?motherduck_token={self._secrets.motherduck_token}"
-
-        logger.info(f"Connecting to DuckDB: {db_path.split('?')[0]}")
-        return duckdb.connect(database=db_path, **kwargs)
-
+            token = self._secrets.get("motherduck_token")
+            if not token:
+                raise ValueError("MotherDuck token is required in secrets.toml")
+            db_path = f"{db_path}?motherduck_token={token}"
+        
+        st.toast(f"Connecting to: {db_path.split('?')[0]}", icon="✅")
+        conn = duckdb.connect(database=db_path, **kwargs)
+        
+        # Execute CREATE TABLE statement only for in-memory databases
+        if db_path == ":memory:":
+            create_table_sql = self._secrets.get("create_table")
+            if create_table_sql:
+                st.toast("Creating Table in Memory", icon="⚙️")
+                try:
+                    conn.execute(create_table_sql)
+                except Exception as e:
+                    st.error(f"Failed to create table: {str(e)}")
+                    raise
+        
+        return conn
+    
     def query(self, query: str, ttl: int = 3600) -> pd.DataFrame:
         @st.cache_data(ttl=ttl)
-        def _query(q: str) -> pd.DataFrame:
-            try:
-                return self._instance.execute(q).df()
-            except duckdb.Error as e:
-                logger.error(f"Query failed: {str(e)}")
-                raise
-
+        def _query(sql: str) -> pd.DataFrame:
+            st.toast("Running Query", icon="🚀")
+            return self._instance.execute(sql).df()
         return _query(query)
 
 
@@ -72,7 +81,8 @@ if __name__ == "__main__":
     st.set_page_config(page_title="DuckDB Connection Demo", layout="wide")
     st.title("DuckDB Connection Example")
 
-    CONNECTION_NAME = "md_dementia"
+    # CONNECTION_NAME = "md_dementia"
+    CONNECTION_NAME = "duckdb_services_csv"
 
     try:
         conn = connect_duckdb(CONNECTION_NAME)
