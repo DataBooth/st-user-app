@@ -1,5 +1,6 @@
 # Extras
 
+*.duckdb
 .vscode/
 local_data.db
 .streamlit/secrets.toml

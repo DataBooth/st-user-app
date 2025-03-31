@@ -4,84 +4,153 @@ import pandas as pd
 import streamlit as st
 from pathlib import Path
 from loguru import logger
+from typing import Optional, Union
 
-SECRETS_FILE = "./streamlit/secrets.toml"
+SECRETS_FILE = Path(".streamlit/secrets.toml")
 
 class DuckDBConnection(BaseConnection[duckdb.DuckDBPyConnection]):
-    """Custom DuckDB Streamlit connection supporting local/MotherDuck connections"""
-
     def _connect(self, **kwargs) -> duckdb.DuckDBPyConnection:
-        # Get database path from secrets or kwargs
         db_path = self._secrets.get("database", kwargs.pop("database", ":memory:"))
+        create_table_sql = self._secrets.get("create_table")
 
-        # For MotherDuck connections
         if db_path.startswith("md:"):
-            motherduck_token = self._secrets.get("motherduck_token")
-            if not motherduck_token:
-                raise ValueError("MotherDuck token required in secrets.toml")
-            db_path = f"{db_path}?motherduck_token={motherduck_token}"
+            token = self._secrets.get("motherduck_token")
+            if not token:
+                raise ValueError(f"MotherDuck token required in {SECRETS_FILE}")
+            db_path = f"{db_path}?motherduck_token={token}"
+            conn = duckdb.connect(db_path, **kwargs)
+        else:
+            is_new_db = db_path != ":memory:" and not Path(db_path).exists()
+            conn = duckdb.connect(database=db_path, **kwargs)
 
-        st.toast(f"Connecting to: {db_path.split('?')[0]}")  # Hide token from display
-        return duckdb.connect(database=db_path, **kwargs)
+            if (db_path == ":memory:" or is_new_db) and create_table_sql:
+                conn.execute(create_table_sql)
 
-    def query(self, query: str, ttl: int = 3600) -> pd.DataFrame:
+        return conn
+
+    def query(self, query: Union[str, Path], ttl: int = 3600) -> pd.DataFrame:
         @st.cache_data(ttl=ttl)
-        def _query(q: str) -> pd.DataFrame:
-            return self._instance.execute(q).df()
-        return _query(query)
+        def _query(sql: str) -> pd.DataFrame:
+            try:
+                return self._instance.execute(sql).df()
+            except Exception as e:
+                logger.error(f"Query execution failed: {str(e)}")
+                st.error(f"Database error: {str(e)}")
+                raise
+
+        try:
+            if isinstance(query, Path):
+                query = query.resolve().read_text(encoding="utf-8")
+            return _query(query)
+        except Exception as e:
+            st.stop()
+            return pd.DataFrame()  # Return an empty DataFrame instead of None
 
 
-def connect_duckdb(connection_name: str):
-    if connection_name not in st.secrets.get("connections", {}):
-        st.error(
-            f"Connection '{connection_name}' is not defined in {SECRETS_FILE}."
-        )
-        return
-    logger.info(f"Connection Name: {connection_name}")
+def connect_duckdb(connection_name: str) -> DuckDBConnection:
+    """Establish validated DuckDB connection"""
+    if not SECRETS_FILE.exists():
+        raise FileNotFoundError(f"Secrets file not found: {SECRETS_FILE.resolve()}")
+
+    connections = st.secrets.get("connections", {})
+    if connection_name not in connections:
+        available = ", ".join(connections.keys())
+        raise KeyError(f"Connection '{connection_name}' not found in {SECRETS_FILE}. Available connections: {available}")
+
+    logger.info(f"Establishing connection: {connection_name}")
     return st.connection(connection_name, type=DuckDBConnection)
 
 
-def duckdb_sql(query: str | Path, conn: DuckDBConnection = None):
-    """Execute a SQL query and display the result in Streamlit."""
-    if conn is None:
-        st.error("No connection provided.")
-        return
-    if query:
-        if isinstance(query, Path):
-            if not query.exists():
-                st.error(f"Query file '{query}' not found.")
-                return
-            try:
-                with query.open("r") as file:
-                    query = file.read()
-            except Exception as e:
-                st.error(f"Error reading query file: {e}")
-                return
-        return conn.query(query)
+def display_default_query(conn: DuckDBConnection) -> None:
+    """Executes and displays the default query, if defined."""
+    default_query = (
+        st.secrets.get("connections", {})
+        .get(conn._connection_name, {})
+        .get("default_query")
+    )
+    if default_query:
+        st.info("Running Default Query...")
+        df = conn.query(default_query)
+        if not df.empty:
+            st.dataframe(df)
+        else:
+            st.warning("Default query returned no results.")
 
-
-# Example usage
-
-if __name__ == "__main__":
+def main():
+    st.set_page_config(page_title="DuckDB Connection Demo", layout="wide")
     st.title("DuckDB Connection Example")
 
-    CONNECTION_NAME = "md_dementia"
-    conn = connect_duckdb(CONNECTION_NAME)
+    # Get available connections from secrets
+    connections = st.secrets.get("connections", {})
+    available_connections = list(connections.keys())
 
-    query = "SHOW TABLES;"
-    # query_file = Path("/path/to/query.sql")
+    if not available_connections:
+        st.error("No DuckDB connections found in secrets.toml")
+        st.stop()
 
-    df = duckdb_sql(query, conn)
-    if df is not None:
-        st.write("Query Result:")
-        st.dataframe(df)
-    else:
-        st.error("Failed to execute query.")
+    CONNECTION_NAME = st.sidebar.selectbox(
+        "Select Connection",
+        available_connections
+    )
 
-    query_file = Path("sql/duckdb_select_data.sql")
-    df = duckdb_sql(query_file, conn)
-    if df is not None:
-        st.write("Query Result from File:")
-        st.dataframe(df)
-    else:
-        st.error("Failed to execute query from file.")
+    try:
+        conn = connect_duckdb(CONNECTION_NAME)
+        st.success(f"Successfully connected to {CONNECTION_NAME}")
+
+        # Show tables query
+        st.subheader("Database Tables")
+        df_tables = conn.query("SHOW TABLES;")
+        if not df_tables.empty:
+            st.dataframe(df_tables, use_container_width=True)
+        else:
+            st.warning("No tables found in the database.")
+
+        # Show results of default query if defined
+        st.subheader("Default Query Result")
+        display_default_query(conn)
+
+        # Query from file
+        st.subheader("Query from File")
+        query_file = Path("sql/duckdb_md_select_default.sql")
+        if query_file.exists():
+            with st.expander(f"View SQL Query: {query_file.name}", expanded=False):
+                st.code(query_file.read_text(), language="sql")
+            df_file_query = conn.query(query_file)
+            if not df_file_query.empty:
+                st.dataframe(df_file_query, use_container_width=True)
+                st.download_button(
+                    label="Download CSV",
+                    data=df_file_query.to_csv(index=False).encode("utf-8"),
+                    file_name=f"{query_file.stem}.csv",
+                    mime="text/csv",
+                )
+            else:
+                st.warning("Query returned no results.")
+        else:
+            st.error(f"Query file not found: {query_file}")
+
+        # Custom SQL query input
+        st.subheader("Custom SQL Query")
+        custom_query = st.text_area("Enter your SQL query:", height=100)
+        if st.button("Execute Query"):
+            if custom_query:
+                df_custom = conn.query(custom_query)
+                if not df_custom.empty:
+                    st.dataframe(df_custom, use_container_width=True)
+                    st.download_button(
+                        label="Download Custom Query Result",
+                        data=df_custom.to_csv(index=False).encode("utf-8"),
+                        file_name="custom_query_result.csv",
+                        mime="text/csv",
+                    )
+                else:
+                    st.warning("Custom query returned no results.")
+            else:
+                st.warning("Please enter a SQL query.")
+
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
+
+
+if __name__ == "__main__":
+    main()
