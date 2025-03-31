@@ -8,22 +8,23 @@ from typing import Optional, Union
 
 SECRETS_FILE = Path(".streamlit/secrets.toml")
 
+
 class DuckDBConnection(BaseConnection[duckdb.DuckDBPyConnection]):
-    """Custom DuckDB connection for Streamlit with table creation support for in-memory databases"""
-    
+    """Custom DuckDB connection for Streamlit with table creation and default query support"""
+
     def _connect(self, **kwargs) -> duckdb.DuckDBPyConnection:
         db_path = self._secrets.get("database", kwargs.pop("database", ":memory:"))
-        
+
         # MotherDuck support
         if db_path.startswith("md:"):
             token = self._secrets.get("motherduck_token")
             if not token:
                 raise ValueError("MotherDuck token is required in secrets.toml")
             db_path = f"{db_path}?motherduck_token={token}"
-        
+
         st.toast(f"Connecting to: {db_path.split('?')[0]}", icon="✅")
         conn = duckdb.connect(database=db_path, **kwargs)
-        
+
         # Execute CREATE TABLE statement only for in-memory databases
         if db_path == ":memory:":
             create_table_sql = self._secrets.get("create_table")
@@ -33,15 +34,15 @@ class DuckDBConnection(BaseConnection[duckdb.DuckDBPyConnection]):
                     conn.execute(create_table_sql)
                 except Exception as e:
                     st.error(f"Failed to create table: {str(e)}")
-                    raise
-        
+
         return conn
-    
+
     def query(self, query: str, ttl: int = 3600) -> pd.DataFrame:
         @st.cache_data(ttl=ttl)
         def _query(sql: str) -> pd.DataFrame:
             st.toast("Running Query", icon="🚀")
             return self._instance.execute(sql).df()
+
         return _query(query)
 
 
@@ -75,6 +76,25 @@ def duckdb_sql(
         return None
 
 
+def display_default_query(conn: DuckDBConnection) -> None:
+    """Executes and displays the default query, if defined, with error handling."""
+    try:
+        default_query = (
+            st.secrets.get("connections", {})
+            .get(conn._connection_name, {})
+            .get("default_query")
+        )
+        if default_query:
+            st.info("Running Default Query...")
+            df = conn.query(default_query)
+            if df is not None and not df.empty:
+                st.dataframe(df)
+            else:
+                st.warning("Default query returned no results.")
+    except Exception as e:
+        st.error(f"Error executing default query: {str(e)}")
+
+
 # Example usage
 
 if __name__ == "__main__":
@@ -99,6 +119,10 @@ if __name__ == "__main__":
         st.dataframe(df_tables, use_container_width=True)
     else:
         st.warning("No tables found in the database.")
+
+    # Show results of default query if defined
+    st.subheader("Default Query Result")
+    display_default_query(conn)
 
     # Query from file
     st.subheader("Query from File")
