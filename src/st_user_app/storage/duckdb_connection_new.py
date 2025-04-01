@@ -1,7 +1,7 @@
 from streamlit.connections import BaseConnection
 import duckdb
 from loguru import logger
-from pydantic import BaseModel, HttpUrl, Field, field_validator
+from pydantic import BaseModel, HttpUrl, field_validator
 from typing import Optional, Union
 from urllib.parse import urlparse
 from pathlib import Path
@@ -10,7 +10,6 @@ import pandas as pd
 from cachetools import TTLCache
 import streamlit as st
 import os
-
 
 class ConnectionConfig(BaseModel):
     data_uri: str
@@ -23,16 +22,15 @@ class ConnectionConfig(BaseModel):
     cache_max_items: int = 50
     cache_enabled: bool = True
 
-    @field_validator("data_uri")
+    @field_validator('data_uri')
     @classmethod
     def validate_data_uri(cls, v: str):
-        if not v.startswith(("file://", "memory://", "md://")):
+        if not v.startswith(('file://', 'memory://', 'md://')):
             v = f"file://{v}"
         scheme = urlparse(v).scheme
-        if scheme not in {"file", "memory", "md"}:
+        if scheme not in {'file', 'memory', 'md'}:
             raise ValueError(f"Invalid URI scheme: {scheme}")
         return v
-
 
 class ConnectionMetrics:
     def __init__(self):
@@ -40,20 +38,19 @@ class ConnectionMetrics:
         self.query_count = 0
         self.cache_hits = 0
         self.cache_misses = 0
+        self.avg_query_time_ms = 0.0
 
-
+import os
 class DuckDBConnection(BaseConnection):
     def _connect(self, **kwargs) -> duckdb.DuckDBPyConnection:
         logger.debug(f"Initializing DuckDBConnection")
 
         try:
-
-            secrets_path = Path(st.secrets["__streamlit_credentials"]["path"])
             # Access the specific connection's secrets using the connection name
-            self._raw_config = kwargs
-            logger.debug(f"Raw configuration: {self._raw_config}")
+            config = self._secrets
+            logger.debug(f"Raw configuration: {config}")
 
-            self.config = self._validate_config()
+            self.config = ConnectionConfig(**config)
             logger.debug(f"Configuration validated")
             self.metrics = ConnectionMetrics()
             self._init_cache()
@@ -64,9 +61,7 @@ class DuckDBConnection(BaseConnection):
 
             uri = urlparse(self.config.data_uri)
             if uri.scheme == "file":
-                db_path = secrets_path.parent / uri.path
-                db_path = str(db_path.resolve())
-
+                db_path = uri.path
                 logger.debug(f"Attempting to connect to file: {db_path}")
                 is_new = not os.path.exists(db_path)
                 conn = duckdb.connect(db_path)
@@ -81,19 +76,18 @@ class DuckDBConnection(BaseConnection):
 
             elif uri.scheme == "md":
                 if not self.config.motherduck_token:
-                    raise ValueError(
-                        "MotherDuck token is required for MotherDuck connections"
-                    )
+                    raise ValueError("MotherDuck token is required for MotherDuck connections")
+                # Obfuscate the token for logging
+                obfuscated_token = self.config.motherduck_token[:4] + '...' + self.config.motherduck_token[-4:]
                 db_uri = f"{self.config.data_uri}?motherduck_token={self.config.motherduck_token}"
+                logger.debug(f"Connecting to MotherDuck with token: {obfuscated_token}")
                 conn = duckdb.connect(db_uri)
 
             else:
                 raise ValueError(f"Unsupported URI scheme: {uri.scheme}")
 
             self.metrics.connection_time_ms = (time.monotonic() - start) * 1000
-            logger.info(
-                f"Connected to {self.config.data_uri} in {self.metrics.connection_time_ms:.2f}ms"
-            )
+            logger.info(f"Connected to {self.config.data_uri} in {self.metrics.connection_time_ms:.2f}ms")
             return conn
 
         except Exception as e:
@@ -112,22 +106,21 @@ class DuckDBConnection(BaseConnection):
 
     def _init_cache(self):
         self._cache = TTLCache(
-            maxsize=self.config.cache_max_items, ttl=self.config.default_ttl
+            maxsize=self.config.cache_max_items,
+            ttl=self.config.default_ttl
         )
 
     def _create_tables(self, conn):
         if self.config.source_url:
             table_name = (
-                self.config.create_table
-                if isinstance(self.config.create_table, str)
+                self.config.create_table if isinstance(self.config.create_table, str)
                 else Path(urlparse(self.config.source_url).path).stem
             )
-            conn.execute(
-                f"CREATE TABLE IF NOT EXISTS {table_name} AS FROM '{self.config.source_url}'"
-            )
+            conn.execute(f"CREATE TABLE IF NOT EXISTS {table_name} AS FROM '{self.config.source_url}'")
             logger.info(f"Created table {table_name} from {self.config.source_url}")
 
     def query(self, query: str, ttl: Optional[int] = None) -> pd.DataFrame:
+        start_time = time.monotonic()  # Start timing the query
         @st.cache_data(ttl=ttl)
         def _cached_query(q: str) -> pd.DataFrame:
             logger.debug(f"Executing query: {q[:50]}...")
@@ -141,10 +134,15 @@ class DuckDBConnection(BaseConnection):
                 st.error(f"Query execution failed: {e}")
                 raise
 
-        return _cached_query(query)
+        result =  _cached_query(query)
+        query_time = time.monotonic() - start_time  # End timing the query
+        self.metrics.avg_query_time_ms = query_time * 1000  # Store query time in milliseconds
+        return result
 
     def get_metrics(self):
         return self.metrics
+
+
 
 
 # from duckdb_connection import DuckDBConnection, ConnectionConfig
