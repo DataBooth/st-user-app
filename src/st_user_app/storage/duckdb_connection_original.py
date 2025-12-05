@@ -7,6 +7,7 @@ from loguru import logger
 
 SECRETS_FILE = "./streamlit/secrets.toml"
 
+
 class DuckDBConnection(BaseConnection[duckdb.DuckDBPyConnection]):
     """Custom DuckDB Streamlit connection supporting local/MotherDuck connections"""
 
@@ -28,14 +29,13 @@ class DuckDBConnection(BaseConnection[duckdb.DuckDBPyConnection]):
         @st.cache_data(ttl=ttl)
         def _query(q: str) -> pd.DataFrame:
             return self._instance.execute(q).df()
+
         return _query(query)
 
 
 def connect_duckdb(connection_name: str):
     if connection_name not in st.secrets.get("connections", {}):
-        st.error(
-            f"Connection '{connection_name}' is not defined in {SECRETS_FILE}."
-        )
+        st.error(f"Connection '{connection_name}' is not defined in {SECRETS_FILE}.")
         return
     logger.info(f"Connection Name: {connection_name}")
     return st.connection(connection_name, type=DuckDBConnection)

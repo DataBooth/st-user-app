@@ -11,6 +11,7 @@ from cachetools import TTLCache
 import streamlit as st
 import os
 
+
 class ConnectionConfig(BaseModel):
     data_uri: str
     source_url: Optional[HttpUrl] = None
@@ -21,29 +22,31 @@ class ConnectionConfig(BaseModel):
     default_ttl: int = 3600
     cache_max_items: int = 50
     cache_enabled: bool = True
+    file_query: Optional[str] = None  # ADDED THIS LINE
 
-    @field_validator('data_uri')
+    @field_validator("data_uri")
     @classmethod
     def validate_data_uri(cls, v: str):
-        if not v.startswith(('file://', 'memory://', 'md://')):
+        if not v.startswith(("file://", "memory://", "md://")):
             v = f"file://{v}"
         scheme = urlparse(v).scheme
-        if scheme not in {'file', 'memory', 'md'}:
+        if scheme not in {"file", "memory", "md"}:
             raise ValueError(f"Invalid URI scheme: {scheme}")
         return v
 
+
 class ConnectionMetrics:
     def __init__(self):
-        self.connection_time_ms = 0
+        self.connection_time_sec = 0
         self.query_count = 0
         self.cache_hits = 0
         self.cache_misses = 0
         self.avg_query_time_ms = 0.0
 
-import os
+
 class DuckDBConnection(BaseConnection):
     def _connect(self, **kwargs) -> duckdb.DuckDBPyConnection:
-        logger.debug(f"Initializing DuckDBConnection")
+        logger.debug("Initializing DuckDBConnection")
 
         try:
             # Access the specific connection's secrets using the connection name
@@ -51,10 +54,10 @@ class DuckDBConnection(BaseConnection):
             logger.debug(f"Raw configuration: {config}")
 
             self.config = ConnectionConfig(**config)
-            logger.debug(f"Configuration validated")
+            logger.debug("Configuration validated")
             self.metrics = ConnectionMetrics()
             self._init_cache()
-            logger.debug(f"Cache initialized")
+            logger.debug("Cache initialized")
 
             logger.debug(f"Connecting to {self.config.data_uri}")
             start = time.monotonic()
@@ -76,18 +79,32 @@ class DuckDBConnection(BaseConnection):
 
             elif uri.scheme == "md":
                 if not self.config.motherduck_token:
-                    raise ValueError("MotherDuck token is required for MotherDuck connections")
+                    raise ValueError(
+                        "MotherDuck token is required for MotherDuck connections"
+                    )
+
+                # Format the URI correctly for DuckDB's MotherDuck connection
+                db_uri = (
+                    f"md:{uri.path}?motherduck_token={self.config.motherduck_token}"
+                )
+
                 # Obfuscate the token for logging
-                obfuscated_token = self.config.motherduck_token[:4] + '...' + self.config.motherduck_token[-4:]
-                db_uri = f"{self.config.data_uri}?motherduck_token={self.config.motherduck_token}"
+                obfuscated_token = (
+                    self.config.motherduck_token[:4]
+                    + "..."
+                    + self.config.motherduck_token[-4:]
+                )
                 logger.debug(f"Connecting to MotherDuck with token: {obfuscated_token}")
+
                 conn = duckdb.connect(db_uri)
 
             else:
                 raise ValueError(f"Unsupported URI scheme: {uri.scheme}")
 
-            self.metrics.connection_time_ms = (time.monotonic() - start) * 1000
-            logger.info(f"Connected to {self.config.data_uri} in {self.metrics.connection_time_ms:.2f}ms")
+            self.metrics.connection_time_sec = time.monotonic() - start
+            logger.info(
+                f"Connected to {self.config.data_uri} in {self.metrics.connection_time_sec:.2f}ms"
+            )
             return conn
 
         except Exception as e:
@@ -106,21 +123,24 @@ class DuckDBConnection(BaseConnection):
 
     def _init_cache(self):
         self._cache = TTLCache(
-            maxsize=self.config.cache_max_items,
-            ttl=self.config.default_ttl
+            maxsize=self.config.cache_max_items, ttl=self.config.default_ttl
         )
 
     def _create_tables(self, conn):
         if self.config.source_url:
             table_name = (
-                self.config.create_table if isinstance(self.config.create_table, str)
+                self.config.create_table
+                if isinstance(self.config.create_table, str)
                 else Path(urlparse(self.config.source_url).path).stem
             )
-            conn.execute(f"CREATE TABLE IF NOT EXISTS {table_name} AS FROM '{self.config.source_url}'")
+            conn.execute(
+                f"CREATE TABLE IF NOT EXISTS {table_name} AS FROM '{self.config.source_url}'"
+            )
             logger.info(f"Created table {table_name} from {self.config.source_url}")
 
     def query(self, query: str, ttl: Optional[int] = None) -> pd.DataFrame:
         start_time = time.monotonic()  # Start timing the query
+
         @st.cache_data(ttl=ttl)
         def _cached_query(q: str) -> pd.DataFrame:
             logger.debug(f"Executing query: {q[:50]}...")
@@ -134,15 +154,15 @@ class DuckDBConnection(BaseConnection):
                 st.error(f"Query execution failed: {e}")
                 raise
 
-        result =  _cached_query(query)
+        result = _cached_query(query)
         query_time = time.monotonic() - start_time  # End timing the query
-        self.metrics.avg_query_time_ms = query_time * 1000  # Store query time in milliseconds
+        self.metrics.avg_query_time_ms = (
+            query_time * 1000
+        )  # Store query time in milliseconds
         return result
 
     def get_metrics(self):
         return self.metrics
-
-
 
 
 # from duckdb_connection import DuckDBConnection, ConnectionConfig
@@ -163,7 +183,7 @@ def display_connection_details(config):
 def display_connection_metrics(metrics):
     st.sidebar.subheader("Connection Metrics")
     metrics_display = {
-        "connection_time_ms": metrics.connection_time_ms,
+        "connection_time_sec": metrics.connection_time_sec,
         "query_count": metrics.query_count,
         "cache_hits": metrics.cache_hits,
         "cache_misses": metrics.cache_misses,
@@ -175,7 +195,7 @@ def display_connection_metrics(metrics):
 def main():
     logger.info("Starting DuckDB Connection Demo")
     st.set_page_config(page_title="DuckDB Connection Demo", layout="wide")
-    st.title("DuckDB Connection Example")
+    st.title("Streamlit DuckDB Connection Examples")
 
     # Get available connections from secrets
     connections = st.secrets.get("connections", {})
@@ -228,28 +248,30 @@ def main():
 
         # Query from file
         st.subheader("Query from File")
-        query_file = Path("sql/duckdb_md_select_default.sql")
-        if query_file.exists():
-            with st.expander(f"View SQL Query: {query_file.name}", expanded=False):
-                st.code(query_file.read_text(), language="sql")
-            df_file_query = conn.query(query_file.read_text())
-            if not df_file_query.empty:
-                st.dataframe(df_file_query, use_container_width=True)
-                st.download_button(
-                    label="Download CSV",
-                    data=df_file_query.to_csv(index=False).encode("utf-8"),
-                    file_name=f"{query_file.stem}.csv",
-                    mime="text/csv",
-                )
+        query_file_path = connections[CONNECTION_NAME].get("file_query")
+        if query_file_path:
+            query_file = Path(query_file_path)
+            if query_file.exists():
+                with st.expander(f"View SQL Query: {query_file.name}", expanded=False):
+                    st.code(query_file.read_text(), language="sql")
+                df_file_query = conn.query(query_file.read_text())
+                if not df_file_query.empty:
+                    st.dataframe(df_file_query, use_container_width=True)
+                    st.download_button(
+                        label="Download CSV",
+                        data=df_file_query.to_csv(index=False).encode("utf-8"),
+                        file_name=f"{query_file.stem}.csv",
+                        mime="text/csv",
+                    )
+                else:
+                    st.warning("Query returned no results.")
             else:
-                st.warning("Query returned no results.")
-        else:
-            st.error(f"Query file not found: {query_file}")
+                st.error(f"Query file not found: {query_file}")
 
         # Custom SQL query input
         st.subheader("Custom SQL Query")
         custom_query = st.text_area("Enter your SQL query:", height=100)
-        custom_ttl = st.number_input(
+        custom_ttl = st.sidebar.number_input(
             "Cache TTL (seconds, 0 to disable)",
             min_value=0,
             value=conn.config.default_ttl,

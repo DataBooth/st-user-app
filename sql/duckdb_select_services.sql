@@ -1,1 +1,1 @@
-SELECT * FROM Demographics LIMIT 10
+SELECT * FROM services LIMIT 10

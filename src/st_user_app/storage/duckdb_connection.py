@@ -8,6 +8,7 @@ from typing import Optional, Union
 
 SECRETS_FILE = Path(".streamlit/secrets.toml")
 
+
 class DuckDBConnection(BaseConnection[duckdb.DuckDBPyConnection]):
     def _connect(self, **kwargs) -> duckdb.DuckDBPyConnection:
         db_path = self._secrets.get("database", kwargs.pop("database", ":memory:"))
@@ -55,7 +56,9 @@ def connect_duckdb(connection_name: str) -> DuckDBConnection:
     connections = st.secrets.get("connections", {})
     if connection_name not in connections:
         available = ", ".join(connections.keys())
-        raise KeyError(f"Connection '{connection_name}' not found in {SECRETS_FILE}. Available connections: {available}")
+        raise KeyError(
+            f"Connection '{connection_name}' not found in {SECRETS_FILE}. Available connections: {available}"
+        )
 
     logger.info(f"Establishing connection: {connection_name}")
     return st.connection(connection_name, type=DuckDBConnection)
@@ -76,6 +79,7 @@ def display_default_query(conn: DuckDBConnection) -> None:
         else:
             st.warning("Default query returned no results.")
 
+
 def main():
     st.set_page_config(page_title="DuckDB Connection Demo", layout="wide")
     st.title("DuckDB Connection Example")
@@ -88,10 +92,7 @@ def main():
         st.error("No DuckDB connections found in secrets.toml")
         st.stop()
 
-    CONNECTION_NAME = st.sidebar.selectbox(
-        "Select Connection",
-        available_connections
-    )
+    CONNECTION_NAME = st.sidebar.selectbox("Select Connection", available_connections)
 
     try:
         conn = connect_duckdb(CONNECTION_NAME)

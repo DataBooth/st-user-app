@@ -1,0 +1,49 @@
+[connections]
+
+[connections.stations]
+description = "In-memory database of Dutch railway stations sourced from a CSV on the web"
+data_uri = "memory://stations"
+source_url = "https://blobs.duckdb.org/nl-railway/stations-2023-09.csv"
+create_table = "stations"
+default_query = "SELECT name_long AS station_name, geo_lat, geo_lng, code FROM stations"
+file_query = "sql/duckdb_select_stations.sql"
+owner = "Example data from duckdb.org"
+tags = ["railway", "transportation", "NL", "stations"]
+last_updated = "2023-09-01"
+timeout_ms = 3000
+default_ttl = 600  # 10 minutes
+cache_max_items = 25
+
+[connections.services]
+description = "Dutch railway services data sourced from a gzipped CSV on the web"
+data_uri = "file://services.duckdb"
+source_url = "https://blobs.duckdb.org/nl-railway/services-2024.csv.gz"
+create_table = "services"
+default_query = "SELECT * FROM services LIMIT 10"
+file_query = "sql/duckdb_select_services.sql"
+owner = "Example data from duckdb.org"
+tags = ["railway", "transportation", "NL"]
+last_updated = "2024-03-31"
+timeout_ms = 5000
+default_ttl = 3600  # 1 hour
+cache_max_items = 50
+
+# [connections.local]
+# data_uri = "file://local_data.duckdb"
+# description = "Local DuckDB file for miscellaneous data storage"
+# owner = "Admin"
+# tags = ["local", "misc"]
+# timeout_ms = 10000
+# default_ttl = 0  # Caching disabled
+# cache_max_items = 1
+
+[connections.dementia]
+data_uri = "md://dementia_data"
+description = "MotherDuck connection to dementia research dataset"
+default_query = "SELECT * FROM Demographics LIMIT 10"
+owner = "Michael J. Booth"
+tags = ["medical", "research", "dementia"]
+timeout_ms = 15000
+default_ttl = 86400  # 24 hours
+cache_max_items = 10
+motherduck_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6Im1pY2hhZWxAZGF0YWJvb3RoLmNvbS5hdSIsInNlc3Npb24iOiJtaWNoYWVsLmRhdGFib290aC5jb20uYXUiLCJwYXQiOiIwWTN4b3NRUjUxNzB4eUR3Ti14b2xTSzRNSG5VTUxjQjg0R0JWVlQ0bUlNIiwidXNlcklkIjoiMDUzNWZkZWUtYTQzMC00N2Q3LWJhYWQtM2E5MGQyZjNkMmFkIiwiaXNzIjoibWRfcGF0IiwicmVhZE9ubHkiOmZhbHNlLCJ0b2tlblR5cGUiOiJyZWFkX3dyaXRlIiwiaWF0IjoxNzQzMzEyNjY0LCJleHAiOjE3NzQ4NDg2NjR9.3N0AJetjHzkaNihu9Ug_zzwnKfz3wmNlCg0RgIn58MU" 

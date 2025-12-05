@@ -1,0 +1,230 @@
+IMPORT ANALYSIS DETAILED LOG
+=========================
+
+File: /Users/mjboothaus/code/github/databooth/st-user-app/app/main.py
+---------------------------------------------------------------------
+ Import: from st_user_app.st_user_app import StreamlitUserApp
+ Package: st_user_app
+ Snyk Data: Not Available
+
+ Import: import os
+ Package: os
+ Snyk Package Name: os
+ Snyk Version: N/A
+ Snyk Health Score: stdlib
+
+
+File: /Users/mjboothaus/code/github/databooth/st-user-app/src/import_analyser.py
+--------------------------------------------------------------------------------
+ Import: import os
+ Package: os
+ Snyk Package Name: os
+ Snyk Version: N/A
+ Snyk Health Score: stdlib
+
+ Import: import argparse
+ Package: argparse
+ Snyk Package Name: argparse
+ Snyk Version: N/A
+ Snyk Health Score: stdlib
+
+ Import: import re
+ Package: re
+ Snyk Package Name: re
+ Snyk Version: N/A
+ Snyk Health Score: stdlib
+
+ Import: import json
+ Package: json
+ Snyk Package Name: json
+ Snyk Version: N/A
+ Snyk Health Score: stdlib
+
+ Import: import time
+ Package: time
+ Snyk Package Name: time
+ Snyk Version: N/A
+ Snyk Health Score: stdlib
+
+ Import: import random
+ Package: random
+ Snyk Package Name: random
+ Snyk Version: N/A
+ Snyk Health Score: stdlib
+
+ Import: import httpx
+ Package: httpx
+ Snyk Package Name: httpx
+ Snyk Version: 0.28.1
+ Snyk Health Score: 94
+
+ Import: import asyncio
+ Package: asyncio
+ Snyk Package Name: asyncio
+ Snyk Version: N/A
+ Snyk Health Score: stdlib
+
+ Import: import sys
+ Package: sys
+ Snyk Package Name: sys
+ Snyk Version: N/A
+ Snyk Health Score: stdlib
+
+ Import: import csv
+ Package: csv
+ Snyk Package Name: csv
+ Snyk Version: N/A
+ Snyk Health Score: stdlib
+
+ Import: import toml
+ Package: toml
+ Snyk Package Name: toml
+ Snyk Version: 0.10.2
+ Snyk Health Score: 79
+
+ Import: import duckdb
+ Package: duckdb
+ Snyk Package Name: duckdb
+ Snyk Version: 1.2.1
+ Snyk Health Score: 91
+
+ Import: import stdlib_list
+ Package: stdlib_list
+ Snyk Package Name: stdlib-list
+ Snyk Version: 0.11.1
+ Snyk Health Score: 79
+
+ Import: import asyncio
+ Package: asyncio
+ Snyk Package Name: asyncio
+ Snyk Version: N/A
+ Snyk Health Score: stdlib
+
+ Import: import stdlib_list
+ Package: stdlib_list
+ Snyk Package Name: stdlib-list
+ Snyk Version: 0.11.1
+ Snyk Health Score: 79
+
+
+File: /Users/mjboothaus/code/github/databooth/st-user-app/src/st_user_app/storage_factory.py
+--------------------------------------------------------------------------------------------
+ Import: from st_user_app.storage.duckdb_storage import DuckDBStorage
+ Package: st_user_app
+ Snyk Data: Not Available
+
+ Import: from st_user_app.storage.sqlite_storage import SQLiteStorage
+ Package: st_user_app
+ Snyk Data: Not Available
+
+
+File: /Users/mjboothaus/code/github/databooth/st-user-app/src/st_user_app/st_user_app.py
+----------------------------------------------------------------------------------------
+ Import: import os
+ Package: os
+ Snyk Package Name: os
+ Snyk Version: N/A
+ Snyk Health Score: stdlib
+
+ Import: from st_user_app.propelauth_app import Auth
+ Package: st_user_app
+ Snyk Data: Not Available
+
+ Import: from st_user_app.storage_factory import StorageFactory
+ Package: st_user_app
+ Snyk Data: Not Available
+
+
+File: /Users/mjboothaus/code/github/databooth/st-user-app/src/st_user_app/storage/duckdb_storage.py
+---------------------------------------------------------------------------------------------------
+ Import: import os
+ Package: os
+ Snyk Package Name: os
+ Snyk Version: N/A
+ Snyk Health Score: stdlib
+
+ Import: import duckdb
+ Package: duckdb
+ Snyk Package Name: duckdb
+ Snyk Version: 1.2.1
+ Snyk Health Score: 91
+
+
+File: /Users/mjboothaus/code/github/databooth/st-user-app/src/st_user_app/storage/duckdb_connection.py
+------------------------------------------------------------------------------------------------------
+ Import: from streamlit.connections import BaseConnection
+ Package: streamlit
+ Snyk Package Name: streamlit
+ Snyk Version: 1.44.0
+ Snyk Health Score: 91
+
+ Import: import duckdb
+ Package: duckdb
+ Snyk Package Name: duckdb
+ Snyk Version: 1.2.1
+ Snyk Health Score: 91
+
+
+File: /Users/mjboothaus/code/github/databooth/st-user-app/src/st_user_app/storage/duckdb_connection_new.py
+----------------------------------------------------------------------------------------------------------
+ Import: import time
+ Package: time
+ Snyk Package Name: time
+ Snyk Version: N/A
+ Snyk Health Score: stdlib
+
+ Import: from urllib.parse import urlparse
+ Package: urllib
+ Snyk Package Name: urllib
+ Snyk Version: N/A
+ Snyk Health Score: stdlib
+
+ Import: import duckdb
+ Package: duckdb
+ Snyk Package Name: duckdb
+ Snyk Version: 1.2.1
+ Snyk Health Score: 91
+
+ Import: import hashlib
+ Package: hashlib
+ Snyk Package Name: hashlib
+ Snyk Version: N/A
+ Snyk Health Score: stdlib
+
+ Import: from streamlit.connections import BaseConnection
+ Package: streamlit
+ Snyk Package Name: streamlit
+ Snyk Version: 1.44.0
+ Snyk Health Score: 91
+
+ Import: from urllib.parse import urlparse
+ Package: urllib
+ Snyk Package Name: urllib
+ Snyk Version: N/A
+ Snyk Health Score: stdlib
+
+
+File: /Users/mjboothaus/code/github/databooth/st-user-app/src/st_user_app/storage/sqlite_storage.py
+---------------------------------------------------------------------------------------------------
+ Import: import os
+ Package: os
+ Snyk Package Name: os
+ Snyk Version: N/A
+ Snyk Health Score: stdlib
+
+
+File: /Users/mjboothaus/code/github/databooth/st-user-app/src/st_user_app/storage/duckdb_connection_original.py
+---------------------------------------------------------------------------------------------------------------
+ Import: from streamlit.connections import BaseConnection
+ Package: streamlit
+ Snyk Package Name: streamlit
+ Snyk Version: 1.44.0
+ Snyk Health Score: 91
+
+ Import: import duckdb
+ Package: duckdb
+ Snyk Package Name: duckdb
+ Snyk Version: 1.2.1
+ Snyk Health Score: 91
+
+

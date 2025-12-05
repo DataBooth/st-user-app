@@ -1,0 +1,1 @@
+SELECT * FROM stations LIMIT 10

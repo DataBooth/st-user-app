@@ -1,0 +1,21 @@
+local_package_rule = "src."
+
+[snyk_name_overrides]
+PIL = "Pillow"
+
+[snyk_ignores]
+packages = [
+    "st_user_app",
+    "_pytest",
+    "RPi",
+    "git",
+    "yaml",
+    "horse_logic",
+    "Array",
+    "Farray",
+    "SuperTensor",
+    "Fortran",
+    "fortran",
+    "clapack_scrub",
+    # Add other packages to ignore here
+]
