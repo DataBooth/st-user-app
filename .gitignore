@@ -1,8 +1,9 @@
 # Extras
 
+.DS_Store
+tmp/
 *.duckdb
 .vscode/
-local_data.db
 .streamlit/secrets.toml
 
 # Byte-compiled / optimized / DLL files
